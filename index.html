@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1">
+
+<title>
+Scanner Merentas Desa
+</title>
+
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+<style>
+
+* {
+  box-sizing:border-box;
+}
+
+body {
+
+  margin:0;
+
+  font-family:
+    Arial,
+    sans-serif;
+
+  background:
+    #f1f5f9;
+
+  color:
+    #172033;
+
+}
+
+header {
+
+  color:white;
+
+  padding:18px;
+
+  text-align:center;
+
+}
+
+.startHeader {
+
+  background:
+    linear-gradient(
+      135deg,
+      #166534,
+      #22c55e
+    );
+
+}
+
+.finishHeader {
+
+  background:
+    linear-gradient(
+      135deg,
+      #c2410c,
+      #f97316
+    );
+
+}
+
+header h1 {
+
+  margin:0;
+
+  font-size:24px;
+
+}
+
+.container {
+
+  max-width:600px;
+
+  margin:auto;
+
+  padding:15px;
+
+}
+
+.card {
+
+  background:white;
+
+  border-radius:20px;
+
+  padding:15px;
+
+  margin-top:15px;
+
+  box-shadow:
+    0 3px 12px
+    rgba(0,0,0,.1);
+
+}
+
+#reader {
+
+  width:100%;
+
+  border-radius:15px;
+
+  overflow:hidden;
+
+}
+
+.result {
+
+  text-align:center;
+
+  padding:18px;
+
+  border-radius:18px;
+
+  margin-top:15px;
+
+}
+
+.success {
+
+  background:#dcfce7;
+
+  color:#14532d;
+
+}
+
+.error {
+
+  background:#fee2e2;
+
+  color:#7f1d1d;
+
+}
+
+.warning {
+
+  background:#fef3c7;
+
+  color:#78350f;
+
+}
+
+.name {
+
+  font-size:28px;
+
+  font-weight:900;
+
+  margin:10px 0;
+
+}
+
+.time {
+
+  font-size:30px;
+
+  font-weight:900;
+
+  margin:10px 0;
+
+}
+
+button {
+
+  border:0;
+
+  padding:13px 18px;
+
+  border-radius:10px;
+
+  font-weight:bold;
+
+  cursor:pointer;
+
+}
+
+.stop {
+
+  background:#dc2626;
+
+  color:white;
+
+}
+
+.info {
+
+  text-align:center;
+
+  color:#64748b;
+
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+<header id="header"
+        class="startHeader">
+
+  <h1 id="title">
+    🟢 SCAN MULA
+  </h1>
+
+  <div>
+    MERENTAS DESA
+  </div>
+
+</header>
+
+
+<div class="container">
+
+
+  <div class="card">
+
+    <div
+      id="reader">
+    </div>
+
+  </div>
+
+
+  <div
+    id="result"
+    class="result"
+    style="display:none">
+  </div>
+
+
+  <div class="card info">
+
+    <p>
+      Halakan kamera kepada QR Code peserta.
+    </p>
+
+    <p>
+      Selepas berjaya, scanner akan bersedia
+      untuk peserta berikutnya.
+    </p>
+
+    <button
+      class="stop"
+      onclick="stopScanner()">
+
+      ⏹ HENTIKAN KAMERA
+
+    </button>
+
+  </div>
+
+</div>
+
+
+<script>
+
+
+/************************************************************
+ * BACA PARAMETER
+ ************************************************************/
+
+const params =
+  new URLSearchParams(
+    window.location.search
+  );
+
+
+const GAS_URL =
+  params.get('gas');
+
+
+const MODE =
+  params.get('mode') ||
+  'start';
+
+
+const SCAN_KEY =
+  params.get('key');
+
+
+/************************************************************
+ * PAPAR MODE
+ ************************************************************/
+
+if (
+  MODE === 'finish'
+) {
+
+  document
+    .getElementById(
+      'header'
+    )
+    .className =
+    'finishHeader';
+
+
+  document
+    .getElementById(
+      'title'
+    )
+    .textContent =
+    '🏁 SCAN PENAMAT';
+
+}
+
+
+/************************************************************
+ * SEMAK CONFIG
+ ************************************************************/
+
+if (
+  !GAS_URL ||
+  !SCAN_KEY
+) {
+
+  showResult(
+    'error',
+    '❌ KONFIGURASI TIDAK LENGKAP',
+    'URL Apps Script atau Scanner Key tiada.'
+  );
+
+} else {
+
+  startScanner();
+
+}
+
+
+/************************************************************
+ * SCANNER
+ ************************************************************/
+
+let scanner = null;
+
+let scanning = false;
+
+let processing = false;
+
+
+function startScanner() {
+
+  if (scanning) {
+    return;
+  }
+
+
+  scanner =
+    new Html5Qrcode(
+      'reader'
+    );
+
+
+  const config = {
+
+    fps:10,
+
+    qrbox:{
+      width:250,
+      height:250
+    },
+
+    aspectRatio:1.0,
+
+    formatsToSupport:[
+      Html5QrcodeSupportedFormats.QR_CODE
+    ]
+
+  };
+
+
+  scanner
+    .start(
+
+      {
+        facingMode:
+          'environment'
+      },
+
+      config,
+
+      function(
+        decodedText
+      ) {
+
+        if (
+          processing
+        ) {
+          return;
+        }
+
+
+        processing =
+          true;
+
+
+        processQR(
+          decodedText
+        );
+
+      },
+
+      function(errorMessage) {
+
+        /*
+         * Abaikan mesej
+         * scanning biasa.
+         */
+
+      }
+
+    )
+
+    .then(
+      function() {
+
+        scanning =
+          true;
+
+      }
+    )
+
+    .catch(
+      function(error) {
+
+        showResult(
+          'error',
+
+          '❌ KAMERA TIDAK DAPAT DIGUNAKAN',
+
+          String(error) +
+          '<br><br>' +
+          'Pastikan anda menggunakan HTTPS ' +
+          'dan benarkan Camera Permission.'
+        );
+
+      }
+    );
+
+}
+
+
+/************************************************************
+ * PROSES QR
+ ************************************************************/
+
+function processQR(qr) {
+
+  stopCameraTemporary();
+
+
+  showResult(
+    'warning',
+    '⏳ MEMPROSES...',
+    'QR Code: ' +
+    escapeHTML(qr)
+  );
+
+
+  jsonpScan(
+    qr,
+    function(result) {
+
+      if (
+        result.success
+      ) {
+
+        if (
+          MODE === 'start'
+        ) {
+
+          showResult(
+
+            'success',
+
+            '✅ PENYERTAAN DIREKOD',
+
+            `
+              <div class="name">
+                ${escapeHTML(
+                  result.student.nama
+                )}
+              </div>
+
+              <div>
+                No Peserta:
+                <b>
+                  ${escapeHTML(
+                    result.student.noPeserta
+                  )}
+                </b>
+              </div>
+
+              <div>
+                Kelas:
+                <b>
+                  ${escapeHTML(
+                    result.student.kelas
+                  )}
+                </b>
+              </div>
+
+              <div class="time">
+                ${formatTime(
+                  result.timestamp
+                )}
+              </div>
+
+              <div>
+                <b>
+                  SEDANG BERLARI
+                </b>
+              </div>
+            `
+
+          );
+
+        } else {
+
+          showResult(
+
+            'success',
+
+            '🏁 TAMAT DIREKOD',
+
+            `
+              <div class="name">
+                ${escapeHTML(
+                  result.student.nama
+                )}
+              </div>
+
+              <div>
+                No Peserta:
+                <b>
+                  ${escapeHTML(
+                    result.student.noPeserta
+                  )}
+                </b>
+              </div>
+
+              <div class="time">
+                ${formatTime(
+                  result.masaTamat
+                )}
+              </div>
+
+              <div>
+                Tempoh
+              </div>
+
+              <div class="time">
+                ${formatDuration(
+                  result.duration
+                )}
+              </div>
+
+              <div>
+                <b>
+                  TAMAT
+                </b>
+              </div>
+            `
+
+          );
+
+        }
+
+
+        beep(
+          true
+        );
+
+
+      } else {
+
+
+        let title =
+          '❌ SCAN DITOLAK';
+
+
+        if (
+          result.type ===
+          'DUPLICATE_START'
+        ) {
+
+          title =
+            '⚠️ SUDAH SCAN MULA';
+
+        }
+
+
+        if (
+          result.type ===
+          'DUPLICATE_FINISH'
+        ) {
+
+          title =
+            '⚠️ SUDAH TAMAT';
+
+        }
+
+
+        if (
+          result.type ===
+          'NO_START'
+        ) {
+
+          title =
+            '❌ BELUM SCAN MULA';
+
+        }
+
+
+        if (
+          result.type ===
+          'INVALID'
+        ) {
+
+          title =
+            '❌ QR TIDAK DIKENALI';
+
+        }
+
+
+        showResult(
+
+          'error',
+
+          title,
+
+          `
+            <p>
+              ${escapeHTML(
+                result.message
+              )}
+            </p>
+
+            ${
+              result.student
+                ? `
+                  <div class="name">
+                    ${escapeHTML(
+                      result.student.nama
+                    )}
+                  </div>
+                `
+                : ''
+            }
+          `
+
+        );
+
+
+        beep(
+          false
+        );
+
+      }
+
+
+      setTimeout(
+        function() {
+
+          if (
+            !document.hidden
+          ) {
+
+            restartScanner();
+
+          }
+
+        },
+        2500
+      );
+
+    }
+  );
+
+}
+
+
+/************************************************************
+ * JSONP SCAN
+ ************************************************************/
+
+function jsonpScan(
+  qr,
+  callback
+) {
+
+  const callbackName =
+    'scanCallback_' +
+    Date.now() +
+    '_' +
+    Math.floor(
+      Math.random() *
+      100000
+    );
+
+
+  window[
+    callbackName
+  ] = function(data) {
+
+    try {
+
+      callback(
+        data
+      );
+
+    } finally {
+
+      delete window[
+        callbackName
+      ];
+
+      if (script) {
+
+        script.remove();
+
+      }
+
+    }
+
+  };
+
+
+  const script =
+    document.createElement(
+      'script'
+    );
+
+
+  script.src =
+    GAS_URL +
+    '?api=scan' +
+    '&mode=' +
+    encodeURIComponent(
+      MODE
+    ) +
+    '&qr=' +
+    encodeURIComponent(
+      qr
+    ) +
+    '&key=' +
+    encodeURIComponent(
+      SCAN_KEY
+    ) +
+    '&callback=' +
+    encodeURIComponent(
+      callbackName
+    ) +
+    '&t=' +
+    Date.now();
+
+
+  script.onerror =
+    function() {
+
+      delete window[
+        callbackName
+      ];
+
+
+      showResult(
+        'error',
+        '❌ RALAT SAMBUNGAN',
+        'Tidak dapat berhubung dengan Google Apps Script.'
+      );
+
+
+      setTimeout(
+        restartScanner,
+        2500
+      );
+
+    };
+
+
+  document
+    .body
+    .appendChild(
+      script
+    );
+
+}
+
+
+/************************************************************
+ * CAMERA
+ ************************************************************/
+
+function stopCameraTemporary() {
+
+  if (
+    scanner &&
+    scanning
+  ) {
+
+    scanner
+      .stop()
+      .then(
+        function() {
+
+          scanning =
+            false;
+
+        }
+      )
+      .catch(
+        function() {
+
+          scanning =
+            false;
+
+        }
+      );
+
+  }
+
+}
+
+
+function restartScanner() {
+
+  processing =
+    false;
+
+
+  document
+    .getElementById(
+      'result'
+    )
+    .style.display =
+    'none';
+
+
+  startScanner();
+
+}
+
+
+function stopScanner() {
+
+  if (
+    scanner &&
+    scanning
+  ) {
+
+    scanner
+      .stop()
+      .then(
+        function() {
+
+          scanning =
+            false;
+
+        }
+      );
+
+  }
+
+}
+
+
+/************************************************************
+ * RESULT
+ ************************************************************/
+
+function showResult(
+  type,
+  title,
+  body
+) {
+
+  const result =
+    document
+      .getElementById(
+        'result'
+      );
+
+
+  result.className =
+    'result ' +
+    type;
+
+
+  result.innerHTML =
+    `
+      <div
+        style="
+          font-size:22px;
+          font-weight:900;">
+        ${title}
+      </div>
+
+      ${body}
+
+    `;
+
+
+  result.style.display =
+    'block';
+
+}
+
+
+/************************************************************
+ * BEEP
+ ************************************************************/
+
+function beep(
+  success
+) {
+
+  try {
+
+    const AudioContext =
+      window.AudioContext ||
+      window.webkitAudioContext;
+
+
+    const context =
+      new AudioContext();
+
+
+    const oscillator =
+      context.createOscillator();
+
+
+    const gain =
+      context.createGain();
+
+
+    oscillator.connect(
+      gain
+    );
+
+
+    gain.connect(
+      context.destination
+    );
+
+
+    oscillator.frequency.value =
+      success
+        ? 880
+        : 220;
+
+
+    gain.gain.value =
+      0.08;
+
+
+    oscillator.start();
+
+
+    oscillator.stop(
+      context.currentTime +
+      0.18
+    );
+
+  } catch (e) {}
+
+}
+
+
+/************************************************************
+ * FORMAT
+ ************************************************************/
+
+function formatTime(
+  timestamp
+) {
+
+  return new Date(
+    timestamp
+  ).toLocaleTimeString(
+    'ms-MY',
+    {
+      hour:'2-digit',
+      minute:'2-digit',
+      second:'2-digit'
+    }
+  );
+
+}
+
+
+function formatDuration(
+  milliseconds
+) {
+
+  let seconds =
+    Math.floor(
+      milliseconds /
+      1000
+    );
+
+
+  const hours =
+    Math.floor(
+      seconds /
+      3600
+    );
+
+
+  seconds %=
+    3600;
+
+
+  const minutes =
+    Math.floor(
+      seconds /
+      60
+    );
+
+
+  seconds %=
+    60;
+
+
+  return (
+
+    String(hours)
+      .padStart(2,'0') +
+
+    ':' +
+
+    String(minutes)
+      .padStart(2,'0') +
+
+    ':' +
+
+    String(seconds)
+      .padStart(2,'0')
+
+  );
+
+}
+
+
+function escapeHTML(
+  value
+) {
+
+  return String(
+    value ?? ''
+  )
+    .replace(
+      /&/g,
+      '&amp;'
+    )
+    .replace(
+      /</g,
+      '&lt;'
+    )
+    .replace(
+      />/g,
+      '&gt;'
+    )
+    .replace(
+      /"/g,
+      '&quot;'
+    )
+    .replace(
+      /'/g,
+      '&#039;'
+    );
+
+}
+
+</script>
+
+</body>
+
+</html>
