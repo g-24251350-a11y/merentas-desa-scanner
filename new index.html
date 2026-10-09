@@ -1,0 +1,109 @@
+
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scanner Merentas Desa</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+body{font-family:Arial,sans-serif;background:#f1f5f9;text-align:center;padding:15px;margin:0}
+main{max-width:560px;margin:auto}
+h2{color:#123c69}
+#mode{padding:15px;border-radius:10px;font-size:20px;font-weight:bold;background:#d9f4e3;color:#12673a;margin-bottom:15px}
+#reader{background:white;border-radius:10px;padding:8px}
+#result{background:white;padding:18px;border-radius:10px;margin-top:15px;min-height:70px;overflow-wrap:anywhere}
+button{padding:13px 20px;border:0;border-radius:8px;background:#123c69;color:white;font-weight:bold;margin-top:15px}
+</style>
+</head>
+<body>
+<main>
+<h2>SJK(C) KIAU SHING</h2>
+<div id="mode">SCANNER</div>
+<div id="reader"></div>
+<div id="result">Sedia untuk mengimbas QR Code.</div>
+<button onclick="location.reload()">🔄 IMBAS SEMULA</button>
+</main>
+<script>
+const GAS_WEB_APP_URL='MASUKKAN_URL_WEB_APP_ANDA_DI_SINI';
+const SCAN_KEY='KIAUSHING2026';
+const mode=new URLSearchParams(location.search).get('mode')||'start';
+const resultBox=document.getElementById('result');
+document.getElementById('mode').textContent=
+  mode==='finish'?'🏁 SCAN PENAMAT':'🟢 SCAN MULA';
+
+let scanner,processing=false;
+
+function safe(v){
+  return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function beep(){
+  try{
+    const C=window.AudioContext||window.webkitAudioContext;
+    const a=new C(),o=a.createOscillator(),g=a.createGain();
+    o.connect(g);g.connect(a.destination);o.frequency.value=880;
+    o.start();g.gain.value=.12;
+    setTimeout(()=>{o.stop();a.close()},180);
+  }catch(e){}
+}
+function startCamera(){
+  if(GAS_WEB_APP_URL.includes('MASUKKAN_URL')){
+    resultBox.textContent='Ralat: URL Apps Script belum dimasukkan.';
+    return;
+  }
+  if(typeof Html5Qrcode==='undefined'){
+    resultBox.textContent='Ralat: pustaka scanner gagal dimuatkan. Semak sambungan internet.';
+    return;
+  }
+  scanner=new Html5Qrcode('reader');
+  scanner.start({facingMode:'environment'},
+    {fps:10,qrbox:{width:240,height:240}},
+    text=>{if(!processing)processQR(text)},
+    ()=>{}
+  ).catch(err=>{
+    resultBox.textContent='Kamera gagal dibuka. Pastikan laman menggunakan HTTPS dan benarkan akses kamera. '+err;
+  });
+}
+function processQR(qr){
+  processing=true;
+  resultBox.textContent='⏳ Sedang merekod...';
+  try{scanner.pause(true)}catch(e){}
+  const cb='qrResult_'+Date.now();
+  let script;
+  let finished=false;
+
+  function done(data){
+    if(finished)return;
+    finished=true;
+    try{
+      if(data.success){
+        beep();
+        let html='✅ <strong>'+safe(data.message)+'</strong>';
+        if(data.student)html+='<br><br>Nama: <strong>'+safe(data.student.nama)+'</strong><br>No Peserta: '+safe(data.student.no)+'<br>Kelas: '+safe(data.student.kelas);
+        if(data.time)html+='<br>Masa Mula: '+safe(data.time);
+        if(data.finish)html+='<br>Masa Tamat: '+safe(data.finish);
+        if(data.duration)html+='<br><br>Tempoh: <strong>'+safe(data.duration)+'</strong>';
+        resultBox.innerHTML=html;
+      }else{
+        resultBox.innerHTML='❌ <strong>'+safe(data.message||'Scan gagal.')+'</strong>';
+      }
+    }finally{
+      if(script)script.remove();
+      delete window[cb];
+      setTimeout(()=>{processing=false;try{scanner.resume()}catch(e){}},2500);
+    }
+  }
+
+  window[cb]=done;
+  const url=GAS_WEB_APP_URL+'?api=scan&mode='+encodeURIComponent(mode)+
+    '&qr='+encodeURIComponent(qr)+'&key='+encodeURIComponent(SCAN_KEY)+
+    '&callback='+encodeURIComponent(cb);
+  script=document.createElement('script');
+  script.src=url;
+  script.onerror=()=>done({success:false,message:'Tidak dapat berhubung dengan Apps Script. Semak URL /exec dan deployment.'});
+  document.body.appendChild(script);
+}
+window.addEventListener('load',startCamera);
+</script>
+</body>
+</html>
